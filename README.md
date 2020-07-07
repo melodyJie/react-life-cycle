@@ -1,6 +1,6 @@
-# React v16 生命周期浅入深出
+# React v16 生命周期浅入"深出"
 
-[react 官网 声明周期介绍](https://zh-hans.reactjs.org/docs/react-component.html)
+[react 官网 声明周期介绍](https://zh-hans.reactjs.org/docs/react-component.html#the-component-lifecycle)
 
 
 ## React 目录结构
@@ -26,6 +26,8 @@ React 采用 [monorepo](https://juejin.im/entry/586f00bc128fe100580a6f78) 的管
 - 其它 packages 我们这里不做探讨
 
 ![React 目录](./public/img/react_packages_dir.jpg)
+
+## 核心概念
 
 ### 核心模块
 
@@ -74,9 +76,9 @@ react 自己实现了一套事件系统，和原生的 DOM 事件系统相比减
 
 ### 声明周期
 
-react 模块正如上面介绍的那些，生命周期仅仅只是 reconciler、scheduler 模块 调用的 命名为声明周期的函数而已，所以我们要深挖 声明周期的原理，其实 就是挖掘 reconciler 的内部实现，声明周期的每个函数 的功能特性 适用性 局限性 都是由 reconciler 决定。下面在深挖 reconciler 前 我们先来对比 react15 与 react16在 reconciler 实现上的差异
+react 模块正如上面介绍的那些，而生命周期仅仅只是 reconciler、scheduler 模块 调用的 命名为声明周期的函数而已，所以我们要深挖 声明周期的原理，其实 就是挖掘 reconciler 的内部实现，声明周期的每个函数 的功能特性 适用性 局限性 都是由 reconciler 决定。下面在深挖 reconciler 前 我们先来对比 react15 与 react16在 reconciler 实现上的差异
 
-## reconciler
+## 生命周期的调用者-Reconciler
 
 > 概念：按照我的理解就是 更新 -> DOM 变化 这之间的流程，它包括了diff 算法。
 
@@ -136,8 +138,8 @@ react 的整个执行流程分为两个大的阶段:
 
 `React` 通过两个 JS 底层 api 来实现：
 
-- `requestIdleCallback` 该方法接收一个 callback，这个回调函数将在浏览器空闲的时候调用
-- `requestAnimationFrame` 该方法接收一个 callback，这个回调函数会在下次浏览器重绘之前调用
+- `requestIdleCallback` 该方法接收一个 `callback` ，这个回调函数将在浏览器空闲的时候调用
+- `requestAnimationFrame` 该方法接收一个 `callback` ，调用 `requestAnimationFrame` ，会将 `callback` 调用推入 animation frame request callback list，而一个非空的 animation frame request callback list，将会使浏览器周期性的向 event loop 中添加一个任务去执行 requestAnimationFrame 注册的回调，这里的周期推测和 event loop 中的渲染时机（rendering opportunity）有关。
 
 其中 `requestIdleCallback` 兼容新不是很好，react 用 `setTimeout` 和 `MessageChannel 来模拟了` `requestIdleCallback` 的行为
 它俩的区别是 `requestIdleCallback` 是需要等待浏览器空闲的时候才会执行而 `requestAnimationFrame` 是每帧都会执行，所以高优先级的任务交给 `requestAnimationFrame` 低优先级的任务交给 `requestIdleCallback` `去处理，但是为了避免因为浏览器一直被占用导致低优先级任务一直无法执行，requestIdleCallback` 还提供了一个 `timeout` 参数指定超过该事件就强制执行回调。
@@ -189,8 +191,6 @@ FiberRoot 表示整个应用的起点，它内部保存着 container 信息，�
 RootFiber 表示整个 fiber tree 的根节点，它内部的 stateNode 指向 FiberRoot，它的 return 为  null
 
 ### Fiber tree
-
-![图片](./public/img/life_of_fra.jpg)
 
 > 我们这里要注意的是 fiber tree 不同于传统的 Virtual DOM 是树形结构，fiber 的 child 只指向第一个 子节点，但是可以通过 sibling 找到其兄弟节点，所以整个结构看起来更像是一个链表结构。
 
@@ -324,7 +324,7 @@ commit 阶段执行完成后 DOM 已经更新完成，这个时候 workInProgres
 
 ![图片](./public/img/035.jpg)
 
-react 的做法是设置优先级，通过调度算法（schedule）来找到高优先级的任务让它先执行，也就是说高优先级的任务会打断低优先级的任务，等到高优先级的任务执行完成之后再去执行低优先级的任务，注意是从头开始执行。
+react 的做法是设置优先级，通过调度算法（schedule）来找到高优先级的任务让它先执行，也就是说高优先级的任务会打断低优先级的任务，等到高优先级的任务执行完成之后再去执行低优先级的任务。
 
 ![图片](./public/img/036.jpg)
 
@@ -334,11 +334,14 @@ fiber reconciler 将一个更新分成两个阶段（Phase）：Reconciliation P
 
 对我们有影响的就是这两个阶段会调用的生命周期函数，以 render 函数为界，第一个阶段会调用以下生命周期函数：
 
-- componentWillMount
-- componentWillReceiveProps
+- UNSAFE_componentWillMount(componentWillMount 废弃)
+- UNSAFE_componentWillReceiveProps(componentWillReceiveProps 废弃)
+- static getDerivedStateFromProps
 - shouldComponentUpdate
-- componentWillUpdate
+- UNSAFE_componentWillUpdate(componentWillUpdate 废弃)
 - render
+- getSnapshotBeforeUpdate
+- componentDidUpdate
 
 第二个阶段会调用的生命周期函数：
 
@@ -347,3 +350,10 @@ fiber reconciler 将一个更新分成两个阶段（Phase）：Reconciliation P
 - componentWillUnmount
 
 因为 fiber reconciler 会导致第一个阶段被多次执行所以我们需要注意在第一阶段的生命周期函数里不要执行那些只能调用一次的操作。
+
+### 最后来个图
+
+从 beginWork 到 updateClassComponent只 声明周期调用
+
+![图片](./public/img/React_beginWork.jpg)
+![图片](./public/img/React_updateClassComponent.jpg)
